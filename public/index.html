@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notice Sloth</title>
+<meta name="description" content="Reads your university notices so you don't have to. Powered by Gemma, an open-weight model.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦥</text></svg>">
+<style>
+:root{
+  --bg:#f6f3ec;--panel:#fffdf8;--ink:#2a2620;--muted:#6f675b;--line:#e2dccf;
+  --do:#b5482f;--do-bg:#fbe9e3;--fyi:#3f6a8a;--fyi-bg:#e6eff6;--skip:#7c7568;--skip-bg:#efece6;
+  --accent:#5b7a3a;--accent-ink:#fff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1916;--panel:#24211d;--ink:#ece6da;--muted:#a59c8c;--line:#3a352e;
+    --do:#f08a6e;--do-bg:#3a2520;--fyi:#8bb6d6;--fyi-bg:#1f2b35;--skip:#a59c8c;--skip-bg:#2b2823;
+    --accent:#8fb86a;--accent-ink:#14170f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1916;--panel:#24211d;--ink:#ece6da;--muted:#a59c8c;--line:#3a352e;
+  --do:#f08a6e;--do-bg:#3a2520;--fyi:#8bb6d6;--fyi-bg:#1f2b35;--skip:#a59c8c;--skip-bg:#2b2823;
+  --accent:#8fb86a;--accent-ink:#14170f;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 16px 64px}
+header h1{margin:0;font-size:1.9rem;letter-spacing:-.01em}
+header p{margin:.3rem 0 0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr;gap:16px;margin-top:22px}
+@media(min-width:820px){.grid{grid-template-columns:2fr 1fr}}
+label{display:block;font-weight:600;font-size:.9rem;margin-bottom:6px}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);padding:12px;font:14px/1.5 ui-monospace,Menlo,monospace;resize:vertical}
+#notices{min-height:280px}#profile{min-height:120px}
+.hint{color:var(--muted);font-size:.82rem;margin:6px 0 0}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+button,.btn{border:0;border-radius:999px;padding:10px 18px;font:600 .95rem system-ui;cursor:pointer;text-decoration:none;display:inline-block}
+.primary{background:var(--accent);color:var(--accent-ink)}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.55;cursor:progress}
+#status{color:var(--muted);font-size:.9rem}
+section.bucket{margin-top:26px}
+section.bucket h2{font-size:1.05rem;margin:0 0 10px;display:flex;gap:8px;align-items:baseline}
+section.bucket h2 small{color:var(--muted);font-weight:400}
+.card{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.card h3{margin:0 0 4px;font-size:1rem}
+.card p{margin:.2rem 0}
+.ja{color:var(--muted)}
+.why{font-size:.85rem;color:var(--muted);margin-top:6px}
+.tasks{margin:8px 0 0;padding:0;list-style:none}
+.tasks li{background:var(--bg-c);border-radius:8px;padding:6px 10px;margin-top:6px;font-size:.92rem}
+.due{font-weight:700;color:var(--c)}
+.do{--c:var(--do);--bg-c:var(--do-bg)}.fyi{--c:var(--fyi);--bg-c:var(--fyi-bg)}.skip{--c:var(--skip);--bg-c:var(--skip-bg)}
+.skip .card{opacity:.8}
+details.skipped summary{cursor:pointer;color:var(--muted)}
+footer{margin-top:40px;color:var(--muted);font-size:.82rem;border-top:1px solid var(--line);padding-top:14px}
+footer a{color:inherit}
+.err{color:var(--do)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>🦥 Notice Sloth</h1>
+    <p>Paste a week of university notices. An open-weight model (Gemma) reads them, and you only see what you actually have to do.</p>
+  </header>
+
+  <div class="grid">
+    <div>
+      <label for="notices">Notices (Japanese or English). Separate them with a line of <code>---</code></label>
+      <textarea id="notices" placeholder="Paste notices here…"></textarea>
+      <p class="hint">Up to 8 notices per run. Text is processed by Gemma on Cloudflare Workers AI and not stored. For zero-upload, run it locally with Ollama (see the repo).</p>
+    </div>
+    <div>
+      <label for="profile">Who are you? (used to decide what to skip)</label>
+      <textarea id="profile" placeholder="e.g. 2nd-year, Faculty of Letters, not in the teacher-training course"></textarea>
+      <p class="hint">Stays in your browser between visits.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <button id="go" class="primary">Read them for me</button>
+    <button id="sample" class="ghost">Load sample notices (fictional)</button>
+    <a id="ics" class="btn ghost" hidden download="notice-sloth.ics">Download calendar (.ics)</a>
+    <span id="status"></span>
+  </div>
+
+  <div id="out"></div>
+
+  <footer>
+    Model: <code>@cf/google/gemma-4-26b-a4b-it</code> on Workers AI · same code runs offline on <code>gemma4:e2b</code> via Ollama ·
+    <a href="https://github.com/Class-now/notice-sloth">source (MIT)</a>.
+    The model only reads; which bucket a notice lands in, the dates and the calendar are decided by plain code.
+  </footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get(k){ try{return localStorage.getItem(k)}catch{return null} }, set(k,v){ try{localStorage.setItem(k,v)}catch{} } };
+$("profile").value = store.get("ns-profile") || "";
+$("profile").addEventListener("input", () => store.set("ns-profile", $("profile").value));
+
+$("sample").onclick = async () => {
+  const [n, p] = await Promise.all([fetch("/samples/notices.txt").then(r=>r.text()), fetch("/samples/profile.txt").then(r=>r.text())]);
+  $("notices").value = n;
+  if (!$("profile").value.trim()) { $("profile").value = p.trim(); store.set("ns-profile", $("profile").value); }
+};
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const META = {
+  do:   { title: "Do this", sub: "needs action from you" },
+  fyi:  { title: "Good to know", sub: "nothing to do" },
+  skip: { title: "Not for you", sub: "safe to ignore" },
+};
+
+function card(r) {
+  const tasks = r.tasks.length ? `<ul class="tasks">${r.tasks.map(t => `<li>${esc(t.what)}${t.due_date ? ` — <span class="due">${esc(t.due_date)}${t.due_time ? " " + esc(t.due_time) : ""}</span>` : ""}${t.where ? ` · ${esc(t.where)}` : ""}</li>`).join("")}</ul>` : "";
+  return `<div class="card"><h3>${esc(r.title)}</h3><p>${esc(r.summary_en)}</p><p class="ja">${esc(r.summary_ja)}</p>${tasks}
+    <div class="why">For you? <b>${esc(r.applies_to_me)}</b>${r.applies_reason ? " — " + esc(r.applies_reason) : ""}${r.error ? ` <span class="err">(${esc(r.error)})</span>` : ""}</div></div>`;
+}
+
+function render(data) {
+  const groups = { do: [], fyi: [], skip: [] };
+  data.results.forEach(r => groups[r.bucket].push(r));
+  let html = "";
+  for (const b of ["do", "fyi", "skip"]) {
+    if (!groups[b].length) continue;
+    const inner = groups[b].map(card).join("");
+    const head = `<h2>${META[b].title} <small>${groups[b].length} · ${META[b].sub}</small></h2>`;
+    html += b === "skip"
+      ? `<section class="bucket skip"><details class="skipped"><summary>${head}</summary>${inner}</details></section>`
+      : `<section class="bucket ${b}">${head}${inner}</section>`;
+  }
+  $("out").innerHTML = html;
+  const dueCount = groups.do.reduce((n, r) => n + r.tasks.filter(t => t.due_date).length, 0);
+  const a = $("ics");
+  if (dueCount) { a.href = URL.createObjectURL(new Blob([data.ics], { type: "text/calendar" })); a.textContent = `Download calendar (${dueCount} deadline${dueCount > 1 ? "s" : ""})`; a.hidden = false; }
+  else a.hidden = true;
+  $("status").textContent = `${data.results.length} notices read in ${(data.ms / 1000).toFixed(1)}s. You need to look at ${groups.do.length}.`;
+}
+
+$("go").onclick = async () => {
+  const notices = $("notices").value.trim();
+  if (!notices) { $("status").textContent = "Paste some notices first (or load the sample)."; return; }
+  $("go").disabled = true; $("status").textContent = "The sloth is reading… (10–30s)"; $("ics").hidden = true;
+  try {
+    const res = await fetch("/api/skim", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ notices, profile: $("profile").value, offsetMinutes: -new Date().getTimezoneOffset() }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    render(data);
+  } catch (e) { $("status").innerHTML = `<span class="err">Failed: ${esc(e.message)}</span>`; }
+  finally { $("go").disabled = false; }
+};
+</script>
+</body>
+</html>

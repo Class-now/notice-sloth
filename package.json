@@ -1,0 +1,17 @@
+{
+  "name": "notice-sloth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads your university notices so you don't have to. Gemma (open weights) on Workers AI or locally on Ollama.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "local": "node local/skim.mjs",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.3"
+  }
+}
